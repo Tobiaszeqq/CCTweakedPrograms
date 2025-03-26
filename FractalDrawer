@@ -1,0 +1,108 @@
+-- Infinite Fractal Explorer for CC: Tweaked
+-- Runs directly in the computer terminal with animated zooming
+
+-- Configuration
+local width, height = term.getSize()
+local max_iterations = 100
+local color_depth = 16
+local zoom_speed = 0.02
+local pan_speed = 0.1
+local change_target_every = 200  -- frames
+
+-- Fractal parameters
+local x_center, y_center = -0.5, 0
+local zoom = 1
+local frame_count = 0
+local target_x, target_y = math.random()*3-2, math.random()*2-1
+
+-- Color mapping with more vibrant colors
+local colors_list = {
+    colors.white, colors.orange, colors.magenta, colors.lightBlue,
+    colors.yellow, colors.lime, colors.pink, colors.gray,
+    colors.lightGray, colors.cyan, colors.purple, colors.blue,
+    colors.brown, colors.green, colors.red, colors.black
+}
+
+local function get_color(iter, max_iter)
+    if iter == max_iter then
+        return colors.black
+    end
+    local idx = (iter % #colors_list) + 1
+    return colors_list[idx]
+end
+
+-- Mandelbrot function with smooth coloring
+local function mandelbrot(c_re, c_im, max_iter)
+    local x, y = 0, 0
+    local iter = 0
+    local x2, y2 = 0, 0
+    
+    while x2 + y2 <= 4 and iter < max_iter do
+        y = 2*x*y + c_im
+        x = x2 - y2 + c_re
+        x2 = x*x
+        y2 = y*y
+        iter = iter + 1
+    end
+    
+    -- Smooth coloring
+    if iter < max_iter then
+        local log_zn = math.log(x2 + y2) / 2
+        local nu = math.log(log_zn / math.log(2)) / math.log(2)
+        iter = iter + 1 - nu
+    end
+    
+    return iter
+end
+
+-- Draw the fractal with animation
+local function draw_frame()
+    term.clear()
+    term.setCursorPos(1, 1)
+    print("Fractal Explorer - Ctrl+T to stop")
+    print("Zoom: "..math.floor(zoom*100).."% Center: "..x_center..", "..y_center)
+    
+    local x_min = x_center - 1.5/zoom
+    local x_max = x_center + 1.5/zoom
+    local y_min = y_center - 1/zoom
+    local y_max = y_center + 1/zoom
+    
+    for py = 3, height do
+        for px = 1, width do
+            local x = x_min + (x_max - x_min) * (px - 1) / (width - 1)
+            local y = y_min + (y_max - y_min) * (py - 3) / (height - 3)
+            
+            local iter = mandelbrot(x, y, max_iterations)
+            local color = get_color(iter, max_iterations)
+            
+            term.setBackgroundColor(color)
+            term.setCursorPos(px, py)
+            term.write(" ")
+        end
+        os.sleep(0)  -- Allow for interruption
+    end
+end
+
+-- Animate the fractal
+while true do
+    frame_count = frame_count + 1
+    
+    -- Change target occasionally
+    if frame_count % change_target_every == 0 then
+        target_x = math.random()*3-2
+        target_y = math.random()*2-1
+    end
+    
+    -- Smooth zoom and pan
+    zoom = zoom * (1 + zoom_speed)
+    x_center = x_center + (target_x - x_center) * pan_speed
+    y_center = y_center + (target_y - y_center) * pan_speed
+    
+    -- Reset zoom occasionally to prevent getting too deep
+    if zoom > 100 then
+        zoom = 1
+        x_center, y_center = math.random()*3-2, math.random()*2-1
+    end
+    
+    draw_frame()
+end
